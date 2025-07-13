@@ -256,177 +256,172 @@
     </div>
 
     <script>
-        // Configuration - Update this with your deployed backend URL
-       const API_BASE_URL = "https://pictureai-primekris.onrender.com";
+ <script>
+const API_BASE_URL = "https://pictureai-primekris.onrender.com";  // ✅ Your backend
 
+// DOM elements
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const loading = document.getElementById('loading');
+const error = document.getElementById('error');
+const success = document.getElementById('success');
+const previewContainer = document.getElementById('previewContainer');
+const originalImg = document.getElementById('originalImg');
+const processedImg = document.getElementById('processedImg');
+const downloadBtn = document.getElementById('downloadBtn');
+const newImageBtn = document.getElementById('newImageBtn');
 
-        
-        // DOM elements
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const loading = document.getElementById('loading');
-        const error = document.getElementById('error');
-        const success = document.getElementById('success');
-        const previewContainer = document.getElementById('previewContainer');
-        const originalImg = document.getElementById('originalImg');
-        const processedImg = document.getElementById('processedImg');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const newImageBtn = document.getElementById('newImageBtn');
-        
-        let processedImageBlob = null;
-        let originalFileName = '';
+let processedImageBlob = null;
+let originalFileName = '';
 
-        // Event listeners
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadArea.addEventListener('dragover', handleDragOver);
-        uploadArea.addEventListener('dragleave', handleDragLeave);
-        uploadArea.addEventListener('drop', handleDrop);
-        fileInput.addEventListener('change', handleFileSelect);
-        downloadBtn.addEventListener('click', downloadImage);
-        newImageBtn.addEventListener('click', resetApp);
+// Event listeners
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', handleDragOver);
+uploadArea.addEventListener('dragleave', handleDragLeave);
+uploadArea.addEventListener('drop', handleDrop);
+fileInput.addEventListener('change', handleFileSelect);
+downloadBtn.addEventListener('click', downloadImage);
+newImageBtn.addEventListener('click', resetApp);
 
-        function handleDragOver(e) {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        }
+function handleDragOver(e) {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+}
 
-        function handleDragLeave(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-        }
+function handleDragLeave(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+}
 
-        function handleDrop(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
-        }
+function handleDrop(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFile(files[0]);
+    }
+}
 
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                handleFile(file);
-            }
-        }
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        handleFile(file);
+    }
+}
 
-        function handleFile(file) {
-            // Validate file
-            if (!file.type.startsWith('image/')) {
-                showError('Please select a valid image file.');
-                return;
-            }
+function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+        showError('Please select a valid image file.');
+        return;
+    }
 
-            if (file.size > 10 * 1024 * 1024) { // 10MB limit
-                showError('File size must be less than 10MB.');
-                return;
-            }
+    if (file.size > 10 * 1024 * 1024) {
+        showError('File size must be less than 10MB.');
+        return;
+    }
 
-            originalFileName = file.name;
-            
-            // Show original image
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                originalImg.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+    originalFileName = file.name;
 
-            // Process image
-            processImage(file);
-        }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        originalImg.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 
-        async function processImage(file) {
-            hideMessages();
-            showLoading();
+    processImage(file);
+}
 
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
+async function processImage(file) {
+    hideMessages();
+    showLoading();
 
-              const response = await fetch(`${API_BASE_URL}/remove`, {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
 
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                processedImageBlob = await response.blob();
-                const imageUrl = URL.createObjectURL(processedImageBlob);
-                
-                processedImg.src = imageUrl;
-                previewContainer.style.display = 'block';
-                
-                hideLoading();
-                showSuccess('Background removed successfully!');
-
-            } catch (err) {
-                console.error('Error processing image:', err);
-                hideLoading();
-                showError('Failed to process image. Please try again or check if the backend is running.');
-            }
-        }
-
-        function downloadImage() {
-            if (!processedImageBlob) return;
-
-            const url = URL.createObjectURL(processedImageBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `no_bg_${originalFileName.split('.')[0]}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function resetApp() {
-            fileInput.value = '';
-            previewContainer.style.display = 'none';
-            processedImageBlob = null;
-            originalFileName = '';
-            hideMessages();
-        }
-
-        function showLoading() {
-            loading.style.display = 'block';
-        }
-
-        function hideLoading() {
-            loading.style.display = 'none';
-        }
-
-        function showError(message) {
-            error.textContent = message;
-            error.style.display = 'block';
-        }
-
-        function showSuccess(message) {
-            success.textContent = message;
-            success.style.display = 'block';
-        }
-
-        function hideMessages() {
-            error.style.display = 'none';
-            success.style.display = 'none';
-        }
-
-        // Test backend connection on page load
-        window.addEventListener('load', async () => {
-            try {
-                const response = await fetch(`${API_BASE_URL}/health`);
-                if (response.ok) {
-                    console.log('Backend connection successful');
-                } else {
-                    console.warn('Backend health check failed');
-                }
-            } catch (err) {
-                console.warn('Backend connection failed:', err);
-            }
+        const response = await fetch(`${API_BASE_URL}/remove`, {
+            method: 'POST',
+            body: formData
         });
-    </script>
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        processedImageBlob = await response.blob();
+        const imageUrl = URL.createObjectURL(processedImageBlob);
+
+        processedImg.src = imageUrl;
+        previewContainer.style.display = 'block';
+
+        hideLoading();
+        showSuccess('Background removed successfully!');
+
+    } catch (err) {
+        console.error('Error processing image:', err);
+        hideLoading();
+        showError('Failed to process image. Please try again or check if the backend is running.');
+    }
+}
+
+function downloadImage() {
+    if (!processedImageBlob) return;
+
+    const url = URL.createObjectURL(processedImageBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `no_bg_${originalFileName.split('.')[0]}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function resetApp() {
+    fileInput.value = '';
+    previewContainer.style.display = 'none';
+    processedImageBlob = null;
+    originalFileName = '';
+    hideMessages();
+}
+
+function showLoading() {
+    loading.style.display = 'block';
+}
+
+function hideLoading() {
+    loading.style.display = 'none';
+}
+
+function showError(message) {
+    error.textContent = message;
+    error.style.display = 'block';
+}
+
+function showSuccess(message) {
+    success.textContent = message;
+    success.style.display = 'block';
+}
+
+function hideMessages() {
+    error.style.display = 'none';
+    success.style.display = 'none';
+}
+
+// Test backend connection on page load
+window.addEventListener('load', async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        if (response.ok) {
+            console.log('Backend connection successful');
+        } else {
+            console.warn('Backend health check failed');
+        }
+    } catch (err) {
+        console.warn('Backend connection failed:', err);
+    }
+});
+</script>
+
 </body>
 </html>
