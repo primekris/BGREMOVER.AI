@@ -30,7 +30,8 @@ app.add_middleware(
 
 # -------------------- Static Files Setup --------------------
 # ✅ This serves index.html, CSS, JS etc. from current directory
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
+app.mount("/static", StaticFiles(directory=".", html=True), name="static")
+
 
 # ❌ REMOVE this route — it was overriding your homepage:
 # @app.get("/")
