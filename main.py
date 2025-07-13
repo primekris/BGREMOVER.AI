@@ -1,7 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from rembg import remove
 import io
 from PIL import Image
 import logging
@@ -12,14 +11,14 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Background Remover API",
-    description="Remove backgrounds from images using rembg",
+    description="Remove backgrounds from images using simple color detection",
     version="1.0.0"
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with your frontend domain
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,7 +35,7 @@ async def health_check():
 @app.post("/remove")
 async def remove_background(file: UploadFile = File(...)):
     """
-    Remove background from uploaded image
+    Remove background from uploaded image using simple color detection
     """
     try:
         # Validate file type
@@ -47,11 +46,15 @@ async def remove_background(file: UploadFile = File(...)):
         contents = await file.read()
         logger.info(f"Processing image: {file.filename}, size: {len(contents)} bytes")
         
-        # Process image with rembg
+        # Process image with simple background removal
         input_image = Image.open(io.BytesIO(contents))
         
-        # Remove background
-        output_image = remove(input_image)
+        # Convert to RGBA if not already
+        if input_image.mode != 'RGBA':
+            input_image = input_image.convert('RGBA')
+        
+        # Simple background removal using color similarity
+        output_image = simple_background_removal(input_image)
         
         # Convert to bytes
         img_byte_arr = io.BytesIO()
@@ -72,6 +75,50 @@ async def remove_background(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Error processing image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+
+def simple_background_removal(image):
+    """
+    Simple background removal using color similarity
+    Works best with solid or simple backgrounds
+    """
+    # Convert to RGB for processing
+    rgb_image = image.convert('RGB')
+    rgba_image = image.convert('RGBA')
+    
+    # Get image dimensions
+    width, height = rgb_image.size
+    
+    # Sample corner pixels to determine background color
+    corners = [
+        rgb_image.getpixel((0, 0)),
+        rgb_image.getpixel((width-1, 0)),
+        rgb_image.getpixel((0, height-1)),
+        rgb_image.getpixel((width-1, height-1))
+    ]
+    
+    # Use the most common corner color as background
+    from collections import Counter
+    bg_color = Counter(corners).most_common(1)[0][0]
+    
+    # Create new image with transparent background
+    new_image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    
+    # Tolerance for color matching (adjust for better results)
+    tolerance = 40
+    
+    for x in range(width):
+        for y in range(height):
+            pixel = rgb_image.getpixel((x, y))
+            
+            # Calculate color difference
+            diff = sum(abs(pixel[i] - bg_color[i]) for i in range(3))
+            
+            if diff > tolerance:
+                # Keep original pixel
+                new_image.putpixel((x, y), rgba_image.getpixel((x, y)))
+            # else: leave transparent (already set)
+    
+    return new_image
 
 if __name__ == "__main__":
     import uvicorn
