@@ -28,15 +28,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- Static Files Setup --------------------
-# ✅ This serves index.html, CSS, JS etc. from current directory
+# -------------------- Serve index.html at "/" --------------------
+@app.get("/")
+async def serve_home():
+    return FileResponse("index.html")
+
+# -------------------- Serve static files at /static --------------------
 app.mount("/static", StaticFiles(directory=".", html=True), name="static")
-
-
-# ❌ REMOVE this route — it was overriding your homepage:
-# @app.get("/")
-# async def root():
-#     return {"message": "Background Remover API is running!"}
 
 # -------------------- Health Check --------------------
 @app.get("/health")
