@@ -257,7 +257,8 @@
 
     <script>
         // Configuration - Update this with your deployed backend URL
-        const API_BASE_URL = 'https://your-backend-url.onrender.com';
+        const response = await fetch(`${API_BASE_URL}/remove`, {
+
         
         // DOM elements
         const uploadArea = document.getElementById('uploadArea');
