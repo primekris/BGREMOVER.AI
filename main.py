@@ -1,12 +1,20 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-import rembg
-from PIL import Image
+from fastapi.responses import StreamingResponse
+from rembg import remove
 import io
-import uvicorn
+from PIL import Image
+import logging
 
-app = FastAPI(title="Background Remover API", version="1.0.0")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="Background Remover API",
+    description="Remove backgrounds from images using rembg",
+    version="1.0.0"
+)
 
 # Configure CORS
 app.add_middleware(
@@ -16,9 +24,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize rembg session
-rembg_session = rembg.new_session('u2net')
 
 @app.get("/")
 async def root():
@@ -38,25 +43,36 @@ async def remove_background(file: UploadFile = File(...)):
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File must be an image")
         
-        # Read uploaded file
+        # Read the uploaded file
         contents = await file.read()
+        logger.info(f"Processing image: {file.filename}, size: {len(contents)} bytes")
         
         # Process image with rembg
-        input_image = contents
-        output_image = rembg.remove(input_image, session=rembg_session)
+        input_image = Image.open(io.BytesIO(contents))
         
-        # Return processed image
-        return Response(
-            content=output_image,
+        # Remove background
+        output_image = remove(input_image)
+        
+        # Convert to bytes
+        img_byte_arr = io.BytesIO()
+        output_image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        
+        logger.info("Background removal completed successfully")
+        
+        # Return the processed image
+        return StreamingResponse(
+            io.BytesIO(img_byte_arr.read()),
             media_type="image/png",
             headers={
-                "Content-Disposition": f"attachment; filename=removed_bg_{file.filename}",
-                "Access-Control-Expose-Headers": "Content-Disposition"
+                "Content-Disposition": f"attachment; filename=no_bg_{file.filename.split('.')[0]}.png"
             }
         )
         
     except Exception as e:
+        logger.error(f"Error processing image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
