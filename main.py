@@ -123,3 +123,18 @@ def simple_background_removal(image):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# ... your existing imports and route handlers
+
+# This mounts the root folder so static files like index.html can be served
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# 👇 Mount current directory (so it can serve index.html or CSS, JS, etc.)
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+# 👇 Serve index.html when someone visits the base URL (e.g., /)
+@app.get("/")
+async def serve_homepage():
+    return FileResponse("index.html")
